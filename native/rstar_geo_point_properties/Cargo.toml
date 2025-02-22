@@ -12,4 +12,4 @@ crate-type = ["cdylib"]
 geo = "0.29.3"
 geojson = { version = "0.24.1", features = ["geo-types"] }
 rstar = "0.12.2"
-rustler = "0.36.1"
+rustler = { version = "0.36.1", features = ["nif_version_2_15"] }

@@ -8,6 +8,7 @@ static DATA: OnceLock<RTree<CachedEnvelope<FeatureGeom>>> = OnceLock::new();
 
 mod my_atoms {
     rustler::atoms! {
+        already_loaded,
         not_loaded,
         unknown,
         parse_error
@@ -98,38 +99,38 @@ pub fn on_load(env: Env, _info: Term) -> bool {
 
 #[rustler::nif]
 fn init(data: String) -> NifResult<rustler::Atom> {
-    match data.parse::<GeoJson>() {
-        Ok(data) => {
-            if let GeoJson::FeatureCollection(feature_collection) = data {
-                let features = feature_collection_to_iter(feature_collection)
-                    .map(CachedEnvelope::new)
-                    .collect::<Vec<_>>();
-
-                let rtree = RTree::bulk_load(features);
-
-                DATA.get_or_init(|| rtree);
-
-                Ok(rustler::types::atom::ok())
-            } else {
-                unimplemented!()
-            }
-        }
-        Err(_) => Err(rustler::Error::Term(Box::new(my_atoms::parse_error()))),
+    // There's probably a little race condition here where `.get` could return None, but before we
+    // get_or_init below, another process does that.
+    if DATA.get().is_some() {
+        return Err(rustler::Error::Term(Box::new(my_atoms::already_loaded())));
     }
+
+    let rtree = parse_and_extract_features(data)
+        .map_err(|_| rustler::Error::Term(Box::new(my_atoms::parse_error())))?;
+
+    DATA.get_or_init(|| rtree);
+
+    Ok(rustler::types::atom::ok())
 }
 
 #[rustler::nif]
 fn init_local(data: String) -> Result<ResourceArc<Geo>, rustler::Atom> {
-    let data: GeoJson = data.parse().map_err(|_| my_atoms::parse_error())?;
+    let rtree = parse_and_extract_features(data).map_err(|_| my_atoms::parse_error())?;
+
+    Ok(ResourceArc::new(Geo(rtree)))
+}
+
+fn parse_and_extract_features(
+    data: String,
+) -> Result<RTree<CachedEnvelope<FeatureGeom>>, Box<dyn std::error::Error>> {
+    let data: GeoJson = data.parse()?;
 
     if let GeoJson::FeatureCollection(feature_collection) = data {
         let features = feature_collection_to_iter(feature_collection)
             .map(CachedEnvelope::new)
             .collect::<Vec<_>>();
 
-        let rtree = RTree::bulk_load(features);
-
-        Ok(ResourceArc::new(Geo(rtree)))
+        Ok(RTree::bulk_load(features))
     } else {
         unimplemented!()
     }

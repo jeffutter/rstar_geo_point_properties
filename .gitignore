@@ -25,4 +25,5 @@ rtree_feature_properties-*.tar
 # Rust binary artifacts
 /target/
 
-priv/native/librstar_geo_point_properties.so
+priv/native/*
+checksum-Elixir.RStarGeoPointProperties.exs
