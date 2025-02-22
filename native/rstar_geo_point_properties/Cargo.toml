@@ -1,0 +1,15 @@
+[package]
+name = "rstar_geo_point_properties"
+version = "0.1.0"
+authors = []
+edition = "2021"
+
+[lib]
+name = "rstar_geo_point_properties"
+crate-type = ["cdylib"]
+
+[dependencies]
+geo = "0.29.3"
+geojson = { version = "0.24.1", features = ["geo-types"] }
+rstar = "0.12.2"
+rustler = "0.36.1"
